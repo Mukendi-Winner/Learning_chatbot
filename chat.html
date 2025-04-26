@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UNH Chatbot</title>
+    <link rel="stylesheet" href="https://cdn.hugeicons.com/font/hgi-stroke-rounded.css">
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: #F3F4F6;
+            font-family: Arial, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chat-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 15px;
+            overflow-y: auto;
+        }
+
+        .message {
+            max-width: 80%;
+            margin-bottom: 10px;
+            padding: 10px 15px;
+            border-radius: 15px;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .user-message {
+            background-color: #2B8C9D;
+            color: #FFFFFF;
+            align-self: flex-end;
+        }
+
+        .bot-message {
+            background-color: #FFFFFF;
+            color: #333;
+            border: 1px solid #E3E2E2;
+            align-self: flex-start;
+        }
+
+        .input-container {
+            position: sticky;
+            bottom: 0;
+            width: 100%;
+            background-color: #FFFFFF;
+            border-top: 3px solid #E3E2E2;
+            padding: 10px 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .input-container img.icon {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+
+        .input-container input {
+            flex: 1;
+            max-width: 400px;
+            height: 40px;
+            border: 1px solid #828282;
+            border-radius: 20px;
+            padding: 0 15px;
+            font-size: 14px;
+        }
+
+        .input-container button {
+            height: 40px;
+            width: 60px;
+            border-radius: 20px;
+            border: none;
+            background-color: #2B8C9D;
+            color: #FFFFFF;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .pdf-list {
+            margin: 10px 15px;
+            padding: 10px;
+            background-color: #FFFFFF;
+            border: 1px solid #E3E2E2;
+            border-radius: 10px;
+            font-size: 14px;
+        }
+        .pdf-list h4 {
+            margin-bottom: 5px;
+            color: #333;
+        }
+        .pdf-list ul {
+            list-style: none;
+            padding: 0;
+        }
+        .pdf-list li {
+            color: #2B8C9D;
+            cursor: pointer;
+            margin-bottom: 5px;
+        }
+        .pdf-list li:hover {
+            text-decoration: underline;
+        }
+
+        .section-list {
+            margin: 10px 15px;
+            padding: 10px;
+            background-color: #F9F9F9;
+            border: 1px solid #E3E2E2;
+            border-radius: 10px;
+            font-size: 14px;
+        }
+        .section-list h4 {
+            margin-bottom: 5px;
+            color: #333;
+        }
+        .section-list ul {
+            list-style: none;
+            padding: 0;
+        }
+        .section-list li {
+            color: #2B8C9D;
+            cursor: pointer;
+            margin-bottom: 5px;
+        }
+        .section-list li:hover {
+            text-decoration: underline;
+        }
+
+
+        /* Tablettes (min-width: 768px) */
+        @media (min-width: 768px) {
+            .chat-container {
+                padding: 30px;
+            }
+
+            .message {
+                font-size: 16px;
+                padding: 12px 20px;
+            }
+
+            .input-container {
+                padding: 15px 30px;
+            }
+
+            .input-container input {
+                height: 45px;
+                font-size: 16px;
+            }
+
+            .input-container button {
+                height: 45px;
+                width: 80px;
+                font-size: 16px;
+            }
+        }
+
+        /* Desktop (min-width: 1024px) */
+        @media (min-width: 1024px) {
+            .chat-container {
+                margin-left: 270px; /* Espace pour la sidebar */
+                padding: 40px;
+            }
+
+            .input-container {
+                margin-left: 270px;
+                border-right: 3px solid #E3E2E2;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="pdf-list" id="pdf-list">
+        <h4>PDFs chargés :</h4>
+        <ul id="pdf-items"></ul>
+    </div>
+    <div class="section-list" id="section-list">
+        <h4>Sections du PDF courant :</h4>
+        <ul id="section-items"></ul>
+    </div>
+    <div class="chat-container" id="chat-container">
+        <!-- Les messages apparaîtront ici -->
+    </div>
+    <div class="input-container">
+        <input type="file" id="pdfInput" accept="application/pdf" style="display: none;">
+        <img src="{{ url_for('static', filename='Assets/attachment-stroke-rounded.svg') }}" alt="Joindre un fichier" class="icon" onclick="document.getElementById('pdfInput').click()">
+        <input type="text" id="chat-input" placeholder="Type your question or request (ex. 'Résumez le chapitre 1', 'Quiz sur les pages 10-20')...">
+        <button onclick="sendMessage()">Send</button>
+    </div>
+    <script>
+        // Récupérer le session_id
+        let sessionId = localStorage.getItem('session_id');
+        if (!sessionId) {
+            sessionId = 'sid-' + Math.random().toString(36).substr(2, 9);
+            localStorage.setItem('session_id', sessionId);
+        }
+        console.log("Session ID:", sessionId);
+
+        // Liste des PDF chargés
+        let pdfList = JSON.parse(localStorage.getItem('pdf_list') || '[]');
+        let sectionList = JSON.parse(localStorage.getItem('section_list') || '{}');
+
+        function updatePdfList(filename) {
+            if (!pdfList.includes(filename)) {
+                pdfList.push(filename);
+                localStorage.setItem('pdf_list', JSON.stringify(pdfList));
+                renderPdfList();
+            }
+        }
+
+        function updateSectionList(filename, sections) {
+            sectionList[filename] = sections;
+            localStorage.setItem('section_list', JSON.stringify(sectionList));
+            renderSectionList(filename);
+        }
+
+        function renderPdfList() {
+            const pdfItems = document.getElementById('pdf-items');
+            pdfItems.innerHTML = '';
+            pdfList.forEach(pdf => {
+                const li = document.createElement('li');
+                li.textContent = pdf;
+                li.onclick = () => {
+                    document.getElementById('chat-input').value = `Résumez ${pdf}`;
+                    sendMessage();
+                    renderSectionList(pdf);
+                };
+                pdfItems.appendChild(li);
+            });
+        }
+
+        function renderSectionList(pdfFilename) {
+            const sectionItems = document.getElementById('section-items');
+            sectionItems.innerHTML = '';
+            const sections = sectionList[pdfFilename] || [];
+            sections.forEach(section => {
+                const li = document.createElement('li');
+                li.textContent = section.title;
+                li.onclick = () => {
+                    document.getElementById('chat-input').value = `Résumez ${section.title} de ${pdfFilename}`;
+                    sendMessage();
+                };
+                sectionItems.appendChild(li);
+            });
+        }
+
+        renderPdfList();
+
+        // Afficher les messages stockés après redirection
+        window.addEventListener('load', function() {
+            console.log("Chargement de chat.html");
+            const userMessage = localStorage.getItem('userMessage');
+            const botMessage = localStorage.getItem('botMessage');
+            const chatContainer = document.getElementById('chat-container');
+
+            if (userMessage) {
+                console.log("Affichage du message utilisateur:", userMessage);
+                const userDiv = document.createElement('div');
+                userDiv.className = 'message user-message';
+                userDiv.textContent = userMessage;
+                chatContainer.appendChild(userDiv);
+                localStorage.removeItem('userMessage');
+            }
+            if (botMessage) {
+                console.log("Affichage du message bot:", botMessage);
+                const botDiv = document.createElement('div');
+                botDiv.className = 'message bot-message';
+                botDiv.textContent = botMessage;
+                chatContainer.appendChild(botDiv);
+                localStorage.removeItem('botMessage');
+                // Ajouter le PDF à la liste si c'est un message d'upload
+                if (botMessage.includes("PDF") && botMessage.includes("chargé avec succès")) {
+                    const filename = botMessage.match(/PDF (.+?) chargé/)[1];
+                    updatePdfList(filename);
+                    // Demander les sections au backend
+                    fetchSections(filename);
+                }
+            }
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        });
+
+        async function fetchSections(filename) {
+            try {
+                console.log("Demande des sections pour:", filename);
+                const response = await fetch('/get_sections', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ filename, session_id: sessionId })
+                });
+                const data = await response.json();
+                if (response.ok) {
+                    console.log("Sections reçues:", data.sections);
+                    updateSectionList(filename, data.sections);
+                } else {
+                    console.error("Erreur backend:", data.error);
+                }
+            } catch (error) {
+                console.error("Erreur réseau:", error.message);
+            }
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('chat-input');
+            const message = input.value.trim();
+            if (!message) {
+                console.error("Aucun message entré");
+                return;
+            }
+
+            // Afficher le message de l'utilisateur
+            const chatContainer = document.getElementById('chat-container');
+            const userMessage = document.createElement('div');
+            userMessage.className = 'message user-message';
+            userMessage.textContent = message;
+            chatContainer.appendChild(userMessage);
+            input.value = '';
+
+            // Envoyer la requête au backend
+            try {
+                console.log("Envoi de la requête à /chat:", message, "session:", sessionId);
+                const response = await fetch('/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message, session_id: sessionId })
+                });
+                const data = await response.json();
+                if (response.ok) {
+                    console.log("Réponse reçue:", data.response);
+                    const botMessage = document.createElement('div');
+                    botMessage.className = 'message bot-message';
+                    botMessage.textContent = data.response;
+                    chatContainer.appendChild(botMessage);
+                    chatContainer.scrollTop = chatContainer.scrollHeight;
+                } else {
+                    console.error("Erreur backend:", data.error);
+                    alert('Erreur : ' + data.error);
+                }
+            } catch (error) {
+                console.error("Erreur réseau:", error.message);
+                alert('Erreur réseau : ' + error.message);
+            }
+        }
+
+        // Gestion du téléchargement de PDF
+        document.getElementById('pdfInput').addEventListener('change', async function() {
+            const file = this.files[0];
+            if (!file) {
+                console.error("Aucun fichier sélectionné");
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('pdf', file);
+            formData.append('session_id', sessionId);
+
+            try {
+                console.log("Envoi du PDF à /upload_pdf, session:", sessionId);
+                const response = await fetch('/upload_pdf', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+                if (response.ok) {
+                    console.log("PDF chargé, message:", data.message);
+                    const botMessage = document.createElement('div');
+                    botMessage.className = 'message bot-message';
+                    botMessage.textContent = data.message;
+                    document.getElementById('chat-container').appendChild(botMessage);
+                    document.getElementById('chat-container').scrollTop = document.getElementById('chat-container').scrollHeight;
+                    // Ajouter le PDF à la liste
+                    const filename = data.message.match(/PDF (.+?) chargé/)[1];
+                    updatePdfList(filename);
+                    fetchSections(filename);
+                } else {
+                    console.error("Erreur backend:", data.error);
+                    alert('Erreur : ' + data.error);
+                }
+            } catch (error) {
+                console.error("Erreur réseau:", error.message);
+                alert('Erreur réseau : ' + error.message);
+            }
+        });
+
+        document.getElementById('chat-input').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+    </script>
+</body>
+</html>
