@@ -1,0 +1,409 @@
+<!-- templates/homepage.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UNH Chatbot</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='CSS/style.css') }}">
+    <link rel="stylesheet" href="https://cdn.hugeicons.com/font/hgi-stroke-rounded.css">
+</head>
+<body>
+<div class="header">
+    <nav>
+        <img src="static/Assets/Logo-UNH-scaled-1-640x224-removebg-preview.png" alt="UNH" width="200">
+        <button class="web-research-button">
+            <i class="hgi hgi-stroke hgi-globe-02"></i>
+            Web Research
+        </button>
+    </nav>
+</div>
+
+<div class="group-elements">
+    <div class="sidebar"></div>
+    <input type="file" id="pdfInput" accept=".pdf,.pptx" onchange="handleFile(this)">
+    <div class="first-card" onclick="document.getElementById('pdfInput').click()">
+        <div class="first-card-circle">
+            <img src="static/Assets/file-02-stroke-rounded.svg" alt="icone">
+        </div>
+        <div class="first-card-text">
+            <h3>Demande sur un Document</h3>
+            <p>
+                Envoie et analyse des <br>
+                <span class="indent-line">fichiers PDF ou PPTX avec l'aide de l'IA </span>
+            </p>
+        </div>
+    </div>
+    <div class="second-card" onclick="goToChat()">
+        <div class="second-card-circle">
+            <img src="static/Assets/help-circle-stroke-rounded.svg" alt="icone">
+        </div>
+        <h3>Pose une Question</h3>
+        <p>
+            Obtiens des réponses rapides à <br>
+            <span class="indent-line-2">tes demandes scolaires</span>
+        </p>
+    </div>
+    <input type="file" id="pdfInput2" accept=".pdf,.pptx" onchange="handleFile(this)">
+    <div class="third-card" onclick="document.getElementById('pdfInput2').click()">
+        <div class="third-card-circle">
+            <img src="static/Assets/checkmark-square-01-stroke-rounded.svg" alt="Done-icon">
+        </div>
+        <h3>Fais un Test</h3>
+        <p>
+            Pratique avec des quiz <br>
+            <span class="indent-line-3">créés par l'IA grâce a tes fichiers</span>
+        </p>
+    </div>
+</div>
+
+<div class="input-container">
+    <input type="file" id="pdfInput3" accept=".pdf,.pptx" style="display: none;">
+    <img src="static/Assets/attachment-stroke-rounded.svg" alt="Joindre un fichier" class="icon" onclick="document.getElementById('pdfInput3').click()">
+    <input type="text" id="query-input" placeholder="Envoi ta question...">
+    <button onclick="sendQuery()">Send</button>
+</div>
+
+<script>
+    let sessionId = sessionStorage.getItem('session_id');
+    if (!sessionId) {
+        sessionId = 'sid-' + Math.random().toString(36).substr(2, 9);
+        sessionStorage.setItem('session_id', sessionId);
+    }
+    console.log("Session ID:", sessionId);
+
+    async function handleFile(input) {
+        const file = input.files[0];
+        if (!file) {
+            console.error("Aucun fichier sélectionné");
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('session_id', sessionId);
+        if (input.id === 'pdfInput2') {
+            formData.append('is_quiz', true);
+        }
+
+        try {
+            console.log("Envoi du fichier à /upload_file");
+            const response = await fetch('/upload_file', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await response.json();
+            if (response.ok) {
+                console.log("Fichier chargé:", data.message);
+                sessionStorage.setItem('botMessage', data.message);
+                window.location.href = data.redirect;
+            } else {
+                console.error("Erreur backend:", data.error);
+                alert('Erreur: ' + data.error);
+            }
+        } catch (error) {
+            console.error("Erreur réseau:", error.message);
+            alert('Erreur réseau: ' + error.message);
+        }
+    }
+
+    function goToChat() {
+        window.location.href = '/chat.html';
+    }
+
+    async function sendQuery() {
+        const query = document.getElementById('query-input').value.trim();
+        if (!query) {
+            console.error("Aucune requête entrée");
+            return;
+        }
+
+        try {
+            console.log("Envoi de la requête à /chat:", query);
+            const response = await fetch('/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: query, session_id: sessionId })
+            });
+            const data = await response.json();
+            if (response.ok) {
+                console.log("Réponse reçue:", data.response);
+                sessionStorage.setItem('userMessage', query);
+                sessionStorage.setItem('botMessage', data.response);
+                window.location.href = '/chat.html';
+            } else {
+                console.error("Erreur backend:", data.error);
+                alert('Erreur: ' + data.error);
+            }
+        } catch (error) {
+            console.error("Erreur réseau:", error.message);
+            alert('Erreur réseau: ' + error.message);
+        }
+    }
+</script>
+</body>
+</html>
+
+
+<style>
+    * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+    }
+
+    body {
+        background-color: #F3F4F6;
+        font-family: Arial, sans-serif;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .header {
+        background-color: #FFFFFF;
+        border-bottom: 3px solid #E3E2E2;
+        padding: 10px 15px;
+    }
+
+    nav {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+    }
+
+    nav img {
+        max-width: 120px;
+        height: auto;
+    }
+
+    .web-research-button {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        height: 40px;
+        width: 100%;
+        max-width: 150px;
+        border-radius: 10px;
+        border: none;
+        background-color: #2B8C9D;
+        color: #FFFFFF;
+        font-size: 16px;
+        font-weight: bold;
+    }
+
+    .web-research-button i {
+        font-size: 20px;
+    }
+
+    .group-elements {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 15px;
+        padding: 15px;
+        flex: 1;
+    }
+
+    .sidebar {
+        display: none;
+    }
+
+    .first-card,
+    .second-card,
+    .third-card {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        max-width: 300px;
+        height: 190px;
+        background-color: #FFFFFF;
+        border-radius: 10px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        text-align: center;
+        padding: 15px;
+        cursor: pointer;
+    }
+
+    .first-card-circle,
+    .second-card-circle,
+    .third-card-circle {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        background-color: rgba(163, 211, 217, 0.45);
+        margin-bottom: 10px;
+    }
+
+    .first-card-circle img,
+    .second-card-circle img,
+    .third-card-circle img {
+        width: 30px;
+        height: 30px;
+    }
+
+    h3 {
+        font-size: 18px;
+        color: #333;
+        margin-bottom: 8px;
+    }
+
+    p {
+        font-size: 14px;
+        color: #666;
+        line-height: 1.5;
+    }
+
+    .indent-line,
+    .indent-line-2,
+    .indent-line-3 {
+        display: inline-block;
+    }
+
+    .input-container {
+        position: sticky;
+        bottom: 0;
+        width: 100%;
+        background-color: #FFFFFF;
+        border-top: 3px solid #E3E2E2;
+        padding: 10px 15px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+    }
+
+    .input-container img.icon {
+        width: 20px;
+        height: 20px;
+        cursor: pointer;
+    }
+
+    .input-container input {
+        flex: 1;
+        max-width: 400px;
+        height: 40px;
+        border: 1px solid #828282;
+        border-radius: 20px;
+        padding: 0 15px;
+        font-size: 14px;
+    }
+
+    .input-container button {
+        height: 40px;
+        width: 60px;
+        border-radius: 20px;
+        border: none;
+        background-color: #2B8C9D;
+        color: #FFFFFF;
+        font-size: 14px;
+        font-weight: bold;
+        cursor: pointer;
+    }
+
+    #pdfInput, #pdfInput2 {
+        display: none;
+    }
+
+    /* Tablettes (min-width: 768px) */
+    @media (min-width: 768px) {
+        .header {
+            padding: 15px 30px;
+        }
+
+        nav {
+            flex-direction: row;
+            justify-content: space-between;
+        }
+
+        nav img {
+            max-width: 250px;
+        }
+
+        .web-research-button {
+            height: 50px;
+            max-width: 250px;
+            font-size: 18px;
+        }
+
+        .group-elements {
+            flex-direction: row;
+            flex-wrap: wrap;
+            justify-content: center;
+            padding: 30px;
+        }
+
+        .first-card,
+        .second-card,
+        .third-card {
+            max-width: 320px;
+            height: 250px;
+        }
+
+        .first-card-circle,
+        .second-card-circle,
+        .third-card-circle {
+            width: 70px;
+            height: 70px;
+        }
+
+        .input-container {
+            padding: 15px 30px;
+        }
+
+        .input-container input {
+            height: 45px;
+            font-size: 16px;
+        }
+
+        .input-container button {
+            height: 45px;
+            width: 80px;
+            font-size: 16px;
+        }
+    }
+
+    /* Desktop (min-width: 1024px) */
+    @media (min-width: 1024px) {
+        .sidebar {
+            display: block;
+            width: 250px;
+            height: 100%;
+            background-color: #FFFFFF;
+            border-right: 3px solid #E3E2E2;
+            position: fixed;
+            top: 0;
+            left: 0;
+        }
+
+        .group-elements {
+            margin-left: 270px;
+            justify-content: space-evenly;
+        }
+
+        .first-card,
+        .second-card,
+        .third-card {
+            max-width: 350px;
+            height: 280px;
+        }
+
+        .first-card-circle,
+        .second-card-circle,
+        .third-card-circle {
+            width: 80px;
+            height: 80px;
+        }
+
+        .input-container {
+            margin-left: 270px;
+            border-right: 3px solid #E3E2E2;
+        }
+    }
+</style>
